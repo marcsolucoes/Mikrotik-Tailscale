@@ -1,75 +1,79 @@
-# Tailscale no MikroTik via Container
+# Tailscale on MikroTik via Container
 
-Instalação automatizada do Tailscale em roteadores MikroTik usando o recurso nativo de containers do RouterOS 7.
+Automated Tailscale installation on MikroTik routers using the native container feature of RouterOS 7.
 
-## Uso rápido
+## Quick Start
 
 ```bash
-# Instalar dependência
+# Install dependency
 pip install paramiko
 
-# Rodar o script (pede IP e senha interativamente)
+# Run the script (prompts for IP and password interactively)
 python3 setup_tailscale_mikrotik.py tskey-auth-XXXXXXXXXXXXXXXX
 
-# Ou passando tudo via argumento
+# Or pass everything as arguments
 python3 setup_tailscale_mikrotik.py tskey-auth-XXX \
   --host 192.168.1.1 \
-  --password "suasenha" \
+  --password "yourpassword" \
   --routes 192.168.88.0/24
 ```
 
-## Requisitos
+## Requirements
 
 - Python 3.8+
 - `pip install paramiko`
-- RouterOS 7.12 ou superior
-- Acesso SSH ao roteador
-- Auth key do Tailscale ([gerar aqui](https://login.tailscale.com/admin/settings/keys))
+- RouterOS 7.12 or later
+- SSH access to the router
+- Tailscale auth key ([generate here](https://login.tailscale.com/admin/settings/keys))
 
-## O que o script faz
+## What the script does
 
-| Etapa | Ação |
-|-------|------|
-| 1 | Instala o pacote `container` no RouterOS |
-| 2 | Habilita o device-mode container *(requer botão reset físico)* |
-| 3 | Cria interface `veth1`, bridge `dockers` e rota Tailscale |
-| 4 | Configura variáveis de ambiente |
-| 5 | Baixa imagem e inicia o container |
-| 6 | Valida funcionamento |
+| Step | Action |
+|------|--------|
+| 1 | Installs the `container` package on RouterOS |
+| 2 | Enables container device-mode *(requires physical reset button press)* |
+| 3 | Creates `veth1` interface, `dockers` bridge and Tailscale route |
+| 4 | Configures environment variables |
+| 5 | Pulls image and starts the container |
+| 6 | Validates everything is working |
 
-## Opções
+## Options
 
 ```
 python3 setup_tailscale_mikrotik.py --help
 
 positional arguments:
-  auth_key         Auth key do Tailscale (tskey-auth-...)
+  auth_key         Tailscale auth key (tskey-auth-...)
 
 options:
-  --host HOST      IP do MikroTik
-  --user USER      Usuário SSH (padrão: admin)
-  --password PASS  Senha SSH
-  --routes ROUTES  Sub-rede LAN a anunciar (padrão: detecta automaticamente)
-  --skip-to N      Pular para a etapa N (1-6)
+  --host HOST      MikroTik IP address
+  --user USER      SSH username (default: admin)
+  --password PASS  SSH password
+  --routes ROUTES  LAN subnet to advertise (default: auto-detected)
+  --skip-to N      Skip to step N (1-6)
 ```
 
-## Pacotes disponíveis
+## Available packages
 
-Os pacotes NPK do container estão pré-extraídos neste repositório:
+Container NPK packages are pre-extracted in this repository:
 
 ```
 packages/
 └── 7.20.8/
     ├── arm/    container-7.20.8-arm.npk     (hAP ax lite, RB4011, etc.)
-    ├── arm64/  container-7.20.8-arm64.npk   (dispositivos 64-bit)
+    ├── arm64/  container-7.20.8-arm64.npk   (64-bit devices)
     └── x86/    container-7.20.8-x86.npk     (CHR, x86)
 ```
 
-## Após a instalação
+## After installation
 
-Acesse o [Tailscale Admin Console](https://login.tailscale.com/admin/machines), localize o dispositivo MikroTik e aprove a subnet route anunciada.
+Go to the [Tailscale Admin Console](https://login.tailscale.com/admin/machines), find the MikroTik device and approve the advertised subnet route.
 
-## Referências
+## References
 
-- Imagem Docker: [fluent-networks/tailscale-mikrotik](https://github.com/Fluent-networks/tailscale-mikrotik)
-- Documentação MikroTik Containers: https://help.mikrotik.com/docs/display/ROS/Container
+- Docker image: [ghcr.io/marcsolucoes/tailscale-mikrotik](https://github.com/marcsolucoes/Mikrotik-Tailscale/pkgs/container/tailscale-mikrotik)
+- MikroTik Containers docs: https://help.mikrotik.com/docs/display/ROS/Container
+
+## Contributors
+
+- [@marcsolucoes](https://github.com/marcsolucoes)
