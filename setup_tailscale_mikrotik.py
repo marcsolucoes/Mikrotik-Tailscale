@@ -289,7 +289,7 @@ def step5_create_container(client):
     info("Criando container (iniciará download da imagem ~30MB)...")
     run(client,
         "/container add"
-        " remote-image=fluent-networks/tailscale-mikrotik:latest"
+        " remote-image=marcsolucoes/tailscale-mikrotik:latest"
         " interface=veth1"
         " envlist=tailscale"
         " root-dir=tailscale"
