@@ -349,14 +349,17 @@ def step6_verify(client):
     else:
         warn(f"Container status: {status}")
 
-    # Verificar arquivos de estado do Tailscale
+    # Aguardar Tailscale autenticar (state file pode demorar ~15s para aparecer)
+    info("Aguardando Tailscale autenticar...")
     sftp = client.open_sftp()
     state_ok = False
-    try:
-        sftp.stat("/tailscale/var/lib/tailscale/tailscaled.state")
-        state_ok = True
-    except FileNotFoundError:
-        pass
+    for _ in range(18):
+        try:
+            sftp.stat("/tailscale/var/lib/tailscale/tailscaled.state")
+            state_ok = True
+            break
+        except OSError:
+            time.sleep(5)
     sftp.close()
 
     if state_ok:
