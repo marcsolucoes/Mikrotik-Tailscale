@@ -4,11 +4,13 @@ Automated Tailscale installation on MikroTik routers using the native container 
 
 ## Quick Start
 
+### Linux / macOS
+
 ```bash
 # Install dependency
 pip install paramiko
 
-# Run the script (prompts for IP and password interactively)
+# Run (prompts for IP and password interactively)
 python3 setup_tailscale_mikrotik.py tskey-auth-XXXXXXXXXXXXXXXX
 
 # Or pass everything as arguments
@@ -17,6 +19,38 @@ python3 setup_tailscale_mikrotik.py tskey-auth-XXX \
   --password "yourpassword" \
   --routes 192.168.88.0/24
 ```
+
+### Windows (PowerShell)
+
+**1. Install Python** (if not installed):
+
+```powershell
+winget install Python.Python.3.12
+```
+
+Close and reopen PowerShell after installing.
+
+**2. Install dependency:**
+
+```powershell
+pip install paramiko
+```
+
+**3. Download the script:**
+
+```powershell
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/marcsolucoes/Mikrotik-Tailscale/main/setup_tailscale_mikrotik.py" -OutFile "setup_tailscale_mikrotik.py"
+```
+
+**4. Run the script** (pass all arguments directly to avoid input issues on PowerShell):
+
+```powershell
+python setup_tailscale_mikrotik.py tskey-auth-XXXXXXXXXXXXXXXX --host 192.168.1.1 --password "yourpassword" --routes 192.168.88.0/24
+```
+
+> **Note:** On Windows use `python` instead of `python3`.
+
+---
 
 ## Requirements
 
@@ -40,7 +74,7 @@ python3 setup_tailscale_mikrotik.py tskey-auth-XXX \
 ## Options
 
 ```
-python3 setup_tailscale_mikrotik.py --help
+python setup_tailscale_mikrotik.py --help
 
 positional arguments:
   auth_key         Tailscale auth key (tskey-auth-...)
