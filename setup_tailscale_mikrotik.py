@@ -105,6 +105,30 @@ def check_route_exists(client, dst):
     return dst in out
 
 
+def check_snat_rule_exists(client, to_address):
+    out, _ = run(client, '/ip/firewall/nat print where chain=srcnat and action=src-nat and out-interface=veth1')
+    return to_address in out
+
+
+def get_router_ip_in_subnet(client, subnet):
+    """Retorna o IP do próprio router que pertence à sub-rede anunciada."""
+    import ipaddress
+    try:
+        net = ipaddress.ip_network(subnet, strict=False)
+    except ValueError:
+        return None
+    out, _ = run(client, "/ip/address print")
+    for line in out.splitlines():
+        m = re.search(r'(\d+\.\d+\.\d+\.\d+)/\d+', line)
+        if m:
+            try:
+                if ipaddress.ip_address(m.group(1)) in net:
+                    return m.group(1)
+            except ValueError:
+                continue
+    return None
+
+
 def check_container_exists(client):
     out, _ = run(client, "/container print")
     return "tailscale" in out.lower()
@@ -240,6 +264,26 @@ def step3_configure_network(client, lan_subnet):
         ok("Rota Tailscale adicionada.")
     else:
         ok("Rota 100.64.0.0/10 já existe.")
+
+    # O iptables dentro do container falha ao criar o MASQUERADE do Tailscale
+    # ("Module is wrong version"), então tráfego originado no próprio router
+    # sai com origem 172.17.0.1 e os peers não sabem responder. Corrige-se
+    # reescrevendo a origem para o IP do router na sub-rede anunciada.
+    router_ip = get_router_ip_in_subnet(client, lan_subnet)
+    if router_ip:
+        if not check_snat_rule_exists(client, router_ip):
+            info(f"Adicionando SNAT (origem local → {router_ip}) para tráfego ao Tailscale...")
+            run(client,
+                "/ip/firewall/nat add chain=srcnat action=src-nat"
+                " dst-address=100.64.0.0/10 out-interface=veth1"
+                f" to-addresses={router_ip}"
+                " comment=\"tailscale-snat-router-traffic\"")
+            ok("Regra SNAT adicionada.")
+        else:
+            ok("Regra SNAT para o Tailscale já existe.")
+    else:
+        warn(f"Não foi possível determinar o IP do router em {lan_subnet}; pulei a regra SNAT.")
+        warn("Ping/traceroute originados no próprio router podem falhar sem Src. Address manual.")
 
 
 def step4_configure_envs(client, auth_key, lan_subnet, password):
@@ -518,3 +562,4 @@ exemplos:
 
 if __name__ == "__main__":
     main()
+
