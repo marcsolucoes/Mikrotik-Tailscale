@@ -1,10 +1,9 @@
-FROM alpine:3.22.3
+# Roteador alvo (hAP ax lite) tem so 128MB de flash total - builder isolado
+# garante que curl/binutils/upx e arquivos temporarios do download NUNCA
+# entram na imagem final, so os binarios prontos (via COPY --from=builder).
+FROM alpine:3.22.3 AS builder
 
-RUN apk add --no-cache ca-certificates iptables iptables-legacy iproute2 bash openssh curl jq \
-    && ln -s /usr/sbin/iptables-legacy /usr/local/bin/iptables \
-    && ln -s /usr/sbin/ip6tables-legacy /usr/local/bin/ip6tables \
-    && ssh-keygen -f /etc/ssh/ssh_host_rsa_key -N '' -t rsa \
-    && ssh-keygen -f /etc/ssh/ssh_host_ed25519_key -N '' -t ed25519
+RUN apk add --no-cache curl binutils upx
 
 # Instala os binarios oficiais pre-compilados da Tailscale (pkgs.tailscale.com)
 # em vez de compilar do zero - evita o bug de build encontrado na imagem
@@ -23,14 +22,25 @@ RUN set -eux; \
     esac; \
     curl -fsSL "https://pkgs.tailscale.com/stable/tailscale_${TAILSCALE_VERSION}_${TS_ARCH}.tgz" -o /tmp/ts.tgz; \
     tar -xzf /tmp/ts.tgz -C /tmp; \
-    mv "/tmp/tailscale_${TAILSCALE_VERSION}_${TS_ARCH}/tailscale" /usr/local/bin/tailscale; \
-    mv "/tmp/tailscale_${TAILSCALE_VERSION}_${TS_ARCH}/tailscaled" /usr/local/bin/tailscaled; \
-    chmod +x /usr/local/bin/tailscale /usr/local/bin/tailscaled; \
+    mv "/tmp/tailscale_${TAILSCALE_VERSION}_${TS_ARCH}/tailscale" /out-tailscale; \
+    mv "/tmp/tailscale_${TAILSCALE_VERSION}_${TS_ARCH}/tailscaled" /out-tailscaled; \
+    chmod +x /out-tailscale /out-tailscaled; \
     rm -rf /tmp/ts.tgz "/tmp/tailscale_${TAILSCALE_VERSION}_${TS_ARCH}"; \
-    apk add --no-cache --virtual .strip-deps binutils; \
-    strip -s /usr/local/bin/tailscale /usr/local/bin/tailscaled; \
-    apk del .strip-deps
+    strip -s /out-tailscale /out-tailscaled; \
+    upx --best --lzma /out-tailscale /out-tailscaled; \
+    /out-tailscale --version; \
+    /out-tailscaled --version
 
+FROM alpine:3.22.3
+
+RUN apk add --no-cache ca-certificates iptables iptables-legacy iproute2 bash openssh \
+    && ln -s /usr/sbin/iptables-legacy /usr/local/bin/iptables \
+    && ln -s /usr/sbin/ip6tables-legacy /usr/local/bin/ip6tables \
+    && ssh-keygen -f /etc/ssh/ssh_host_rsa_key -N '' -t rsa \
+    && ssh-keygen -f /etc/ssh/ssh_host_ed25519_key -N '' -t ed25519
+
+COPY --from=builder /out-tailscale /usr/local/bin/tailscale
+COPY --from=builder /out-tailscaled /usr/local/bin/tailscaled
 COPY sshd_config /etc/ssh/sshd_config
 COPY tailscale.sh /usr/local/bin/tailscale.sh
 RUN chmod +x /usr/local/bin/tailscale.sh
