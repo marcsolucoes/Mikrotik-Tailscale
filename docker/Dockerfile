@@ -3,7 +3,7 @@
 # entram na imagem final, so os binarios prontos (via COPY --from=builder).
 FROM alpine:3.22.3 AS builder
 
-RUN apk add --no-cache curl binutils upx
+RUN apk add --no-cache curl binutils
 
 # Instala os binarios oficiais pre-compilados da Tailscale (pkgs.tailscale.com)
 # em vez de compilar do zero - evita o bug de build encontrado na imagem
@@ -27,7 +27,6 @@ RUN set -eux; \
     chmod +x /out-tailscale /out-tailscaled; \
     rm -rf /tmp/ts.tgz "/tmp/tailscale_${TAILSCALE_VERSION}_${TS_ARCH}"; \
     strip -s /out-tailscale /out-tailscaled; \
-    upx --best --lzma /out-tailscale /out-tailscaled; \
     /out-tailscale --version; \
     /out-tailscaled --version
 
