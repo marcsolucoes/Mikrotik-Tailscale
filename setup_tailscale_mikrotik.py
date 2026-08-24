@@ -310,22 +310,79 @@ def step4_configure_envs(client, auth_key, lan_subnet, password):
     ok("Variáveis de ambiente configuradas.")
 
 
+def cleanup_stale_container(client):
+    """Remove container e arquivos residuais (root-dir) de uma tentativa
+    anterior antes de criar um novo.
+
+    Bug real: um reset de configuração do RouterOS limpa a CONFIGURAÇÃO mas
+    NÃO os arquivos já extraídos do container no flash — eles ficam soltos,
+    associados ao mesmo nome de root-dir. Reprovisionar reaproveitando esse
+    nome faz o container falhar ao iniciar com "could not load config.json"
+    (dados de uma extração anterior sendo reaproveitados por engano em vez
+    de uma extração 100% fresca). Rodar isso sempre, antes de criar o
+    container, garante uma extração limpa toda vez — seguro mesmo na
+    primeira vez num roteador de fábrica (remove num conjunto vazio é
+    no-op silencioso)."""
+    run(client, "/container remove [find]")
+    run(client, '/file remove [find name="tailscale"]')
+
+
+def wait_for_internet(client, timeout=60):
+    """Espera confirmar internet de verdade (ping) antes de criar o
+    container.
+
+    Bug real: `/container add` começa a baixar a imagem imediatamente
+    (síncrono, no mesmo segundo do add), e se a rota padrão ainda não
+    estava efetivamente ativa naquele instante (ex: DHCP da WAN ainda
+    terminando de vincular), o download falhava na hora com "Network
+    unreachable" — o container ficava preso em "could not load config.json"
+    pra sempre, sem nenhum retry automático do RouterOS. Ter uma rota na
+    tabela não basta; confirma com ping real."""
+    info("Aguardando conectividade real com a internet...")
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        out, _ = run(client, "/ping 8.8.8.8 count=2")
+        if "packet-loss=0%" in out or "packet-loss=50%" in out:
+            ok("Internet confirmada.")
+            return True
+        time.sleep(3)
+    warn(f"Sem resposta de 8.8.8.8 após {timeout}s — o container pode falhar ao baixar a imagem.")
+    return False
+
+
+def wait_for_clock_sync(client, timeout=60):
+    """Espera o NTP sincronizar o relógio antes de criar o container.
+
+    Bug real: se o relógio do sistema ainda estiver com uma data antiga no
+    momento da criação (comum logo após o boot, antes do NTP sincronizar),
+    a validação TLS do download da imagem no ghcr.io rejeita o certificado
+    ("cert not valid") e o container fica preso em "could not load
+    config.json" sem nenhum retry automático — podendo ficar assim por
+    meses até alguém notar."""
+    info("Aguardando sincronização do relógio (NTP)...")
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        out, _ = run(client, "/system ntp client print")
+        if "status: synchronized" in out:
+            ok("Relógio sincronizado.")
+            return True
+        time.sleep(3)
+    warn(f"NTP não confirmou sincronização após {timeout}s — o download da imagem pode falhar por certificado TLS inválido.")
+    return False
+
+
 def step5_create_container(client):
     step("ETAPA 5 — Criar e iniciar container Tailscale")
 
-    if check_container_exists(client):
-        status = get_container_status(client)
-        if status == "running":
-            ok("Container já existe e está RUNNING.")
-            return
-        elif status == "stopped":
-            warn("Container existe mas está parado. Iniciando...")
-            run(client, "/container start 0")
-            time.sleep(5)
-            ok("Container iniciado.")
-            return
-        else:
-            warn(f"Container em estado: {status}. Aguardando...")
+    if check_container_exists(client) and get_container_status(client) == "running":
+        ok("Container já existe e está RUNNING.")
+        return
+
+    info("Limpando container/arquivos residuais de tentativa anterior (se houver)...")
+    cleanup_stale_container(client)
+
+    wait_for_internet(client)
+    wait_for_clock_sync(client)
 
     # Configurar registry
     info("Configurando registry ghcr.io...")
