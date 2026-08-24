@@ -26,7 +26,10 @@ RUN set -eux; \
     mv "/tmp/tailscale_${TAILSCALE_VERSION}_${TS_ARCH}/tailscale" /usr/local/bin/tailscale; \
     mv "/tmp/tailscale_${TAILSCALE_VERSION}_${TS_ARCH}/tailscaled" /usr/local/bin/tailscaled; \
     chmod +x /usr/local/bin/tailscale /usr/local/bin/tailscaled; \
-    rm -rf /tmp/ts.tgz "/tmp/tailscale_${TAILSCALE_VERSION}_${TS_ARCH}"
+    rm -rf /tmp/ts.tgz "/tmp/tailscale_${TAILSCALE_VERSION}_${TS_ARCH}"; \
+    apk add --no-cache --virtual .strip-deps binutils; \
+    strip -s /usr/local/bin/tailscale /usr/local/bin/tailscaled; \
+    apk del .strip-deps
 
 COPY sshd_config /etc/ssh/sshd_config
 COPY tailscale.sh /usr/local/bin/tailscale.sh
