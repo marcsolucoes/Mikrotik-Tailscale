@@ -298,6 +298,7 @@ def step4_configure_envs(client, auth_key, lan_subnet, password):
     vars_ = [
         ("AUTH_KEY",          auth_key),
         ("ADVERTISE_ROUTES",  lan_subnet),
+        ("TAILSCALE_ARGS",    "--accept-routes"),
         ("CONTAINER_GATEWAY", "172.17.0.1"),
         ("LOGIN_SERVER",      "https://controlplane.tailscale.com"),
         ("PASSWORD",          password),
